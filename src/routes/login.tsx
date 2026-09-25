@@ -33,7 +33,7 @@ function LoginPage() {
       toast.error("Não foi possível entrar. Verifique email e senha.");
       return;
     }
-    navigate({ to: "/dashboard" });
+    navigate({ to: "/onboarding" });
   }
 
   return (
