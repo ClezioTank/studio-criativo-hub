@@ -25,6 +25,14 @@ type Profile = {
   studio_id: string | null;
 };
 
+async function getSupabaseAdmin() {
+  // This import stays inside a server-function handler. The service-role client
+  // never becomes part of the browser bundle and is only used after the bearer
+  // token middleware has established the authenticated user ID.
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return supabaseAdmin;
+}
+
 function profileValues(userId: string, claims: Record<string, unknown>) {
   const metadata = claims["user_metadata"];
   const fullName =
@@ -39,12 +47,11 @@ function profileValues(userId: string, claims: Record<string, unknown>) {
   };
 }
 
-async function getOrCreateProfile(context: {
-  supabase: SupabaseClient<Database>;
-  userId: string;
-  claims: Record<string, unknown>;
-}): Promise<Profile> {
-  const { supabase, userId, claims } = context;
+async function getOrCreateProfile(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  claims: Record<string, unknown>,
+): Promise<Profile> {
   const { data: existing, error: readError } = await supabase
     .from("profiles")
     .select("id, is_active, onboarded, studio_id")
@@ -72,19 +79,23 @@ async function getOrCreateProfile(context: {
 
 export const getAuthenticatedProfile = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => getOrCreateProfile(context));
+  .handler(async ({ context }) => {
+    const supabase = await getSupabaseAdmin();
+    return getOrCreateProfile(supabase, context.userId, context.claims);
+  });
 
 export const completeOnboarding = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator(onboardingInput)
   .handler(async ({ data, context }) => {
-    const profile = await getOrCreateProfile(context);
+    const supabase = await getSupabaseAdmin();
+    const profile = await getOrCreateProfile(supabase, context.userId, context.claims);
     if (!profile.is_active) throw new Error("A sua conta está desativada. Contacte o suporte.");
     if (profile.onboarded) return { studioId: profile.studio_id };
 
     let studioId = profile.studio_id;
     if (!studioId) {
-      const { data: existingStudio, error: existingStudioError } = await context.supabase
+      const { data: existingStudio, error: existingStudioError } = await supabase
         .from("studios")
         .select("id")
         .eq("owner_id", context.userId)
@@ -98,7 +109,7 @@ export const completeOnboarding = createServerFn({ method: "POST" })
       if (existingStudio) {
         studioId = existingStudio.id;
       } else {
-        const { data: studio, error: studioError } = await context.supabase
+        const { data: studio, error: studioError } = await supabase
           .from("studios")
           .insert({ owner_id: context.userId, name: data.studioName, type: data.studioType })
           .select("id")
@@ -110,7 +121,7 @@ export const completeOnboarding = createServerFn({ method: "POST" })
       }
     }
 
-    const { data: updatedProfile, error: profileError } = await context.supabase
+    const { data: updatedProfile, error: profileError } = await supabase
       .from("profiles")
       .update({ studio_id: studioId, studio_type: data.studioType, onboarded: true })
       .eq("id", context.userId)
