@@ -502,6 +502,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_active_user: { Args: Record<PropertyKey, never>; Returns: boolean }
       is_studio_owner: { Args: { _studio_id: string }; Returns: boolean }
     }
     Enums: {
