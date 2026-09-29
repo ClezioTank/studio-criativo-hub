@@ -148,6 +148,7 @@ for each row execute function public.enforce_activity_log_write();
 
 -- Explicitly revoke mutation grants from regular users where mutations are not
 -- part of the product surface. RLS remains the primary data-isolation layer.
+revoke insert, delete on public.profiles from authenticated;
 revoke insert, update, delete on public.user_roles from authenticated;
 revoke insert, update, delete on public.payments from authenticated;
 
@@ -187,8 +188,6 @@ create policy "studio admin manage" on public.studios for all to authenticated
 
 create policy "profile own read" on public.profiles for select to authenticated
   using (public.is_active_user() and id = auth.uid());
-create policy "profile own insert" on public.profiles for insert to authenticated
-  with check (id = auth.uid());
 create policy "profile own update" on public.profiles for update to authenticated
   using (public.is_active_user() and id = auth.uid()) with check (id = auth.uid());
 create policy "profile admin manage" on public.profiles for all to authenticated
