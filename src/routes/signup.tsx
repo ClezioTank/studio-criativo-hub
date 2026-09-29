@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getAuthenticatedProfile } from "@/features/onboarding/auth.functions";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({
@@ -12,7 +13,10 @@ export const Route = createFileRoute("/signup")({
       { title: "Criar conta — StudioOS" },
       { name: "description", content: "Crie a sua conta StudioOS e organize o seu estúdio." },
       { property: "og:title", content: "Criar conta — StudioOS" },
-      { property: "og:description", content: "Crie a sua conta StudioOS e organize o seu estúdio." },
+      {
+        property: "og:description",
+        content: "Crie a sua conta StudioOS e organize o seu estúdio.",
+      },
     ],
   }),
   component: SignupPage,
@@ -43,7 +47,16 @@ function SignupPage() {
       setSent(true);
       return;
     }
-    navigate({ to: "/onboarding" });
+    try {
+      await getAuthenticatedProfile();
+      await navigate({ to: "/onboarding" });
+    } catch (profileError) {
+      toast.error(
+        profileError instanceof Error
+          ? profileError.message
+          : "A conta foi criada, mas não foi possível preparar o seu perfil.",
+      );
+    }
   }
 
   if (sent) {
@@ -52,8 +65,8 @@ function SignupPage() {
         <div className="w-full max-w-sm text-center">
           <h1 className="text-2xl font-bold">Confirme o seu email</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Enviámos um link de confirmação para <strong>{email}</strong>. Depois de confirmar, volte
-            e faça login.
+            Enviámos um link de confirmação para <strong>{email}</strong>. Depois de confirmar,
+            volte e faça login.
           </p>
           <Button asChild className="mt-6 w-full">
             <Link to="/login">Ir para o login</Link>
